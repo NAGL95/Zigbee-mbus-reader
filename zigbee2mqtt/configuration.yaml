@@ -1,0 +1,26 @@
+version: 4
+homeassistant:
+  enabled: true
+advanced:
+  network_key:
+    - 0x543204fffe3de658 # это тут для примера, замените на свой
+  pan_id: 42443
+  ext_pan_id:
+    - 1
+  log_level: debug
+mqtt:
+  server: mqtt://core-mosquitto:1883
+  user: addons
+  password: adfhsfrfrtthadfnqeahnnafgh
+frontend:
+  enabled: true
+  port: 8099
+devices:
+  '0x543204fffe3de658':
+    friendly_name: '0x543204fffe3de658'
+serial:
+  adapter: ezsp
+external_converters:
+  - zigbee-mbus-sensor.js #это имя конвертера которое вам неоюбходимо прописать в настройках /homeassistant/zigbee2mqtt/configuration.yaml 
+ota:
+  zigbee_ota_override_index_location: local_ota_index.json
