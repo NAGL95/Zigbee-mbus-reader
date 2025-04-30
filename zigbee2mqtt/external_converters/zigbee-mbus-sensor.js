@@ -10,25 +10,53 @@ const fzLocal = {
         convert: (model, msg, publish, options, meta) => {
             if (msg.data.hasOwnProperty('currentSummDelivered')) {
                 const rawValue = msg.data['currentSummDelivered'];
-                const valueGcal = rawValue / 1000; // делим на 1000
-                return {
-                    heat_gcal: valueGcal,
-                };
+                if (rawValue === 0) return; // Пропускаем 0
+                const valueGcal = rawValue / 1000;
+                return { heat_gcal: valueGcal };
             }
         },
     },
+    power_voltage: {
+        cluster: 'genPowerCfg',
+        type: ['attributeReport', 'readResponse'],
+        convert: (model, msg, publish, options, meta) => {
+            if (!msg.data.hasOwnProperty('mainsVoltage')) return;
+    
+            const rawValue = msg.data['mainsVoltage'];
+            if (rawValue === 0) return;
+    
+            const voltage = rawValue / 100.0; // mainsVoltage приходит как В * 100
+    
+            // Таблица соответствия напряжения уровню заряда
+            let batteryPercent;
+            if (voltage >= 4.20) batteryPercent = 100;
+            else if (voltage >= 4.00) batteryPercent = 85;
+            else if (voltage >= 3.80) batteryPercent = 60;
+            else if (voltage >= 3.70) batteryPercent = 45;
+            else if (voltage >= 3.60) batteryPercent = 30;
+            else if (voltage >= 3.50) batteryPercent = 15;
+            else if (voltage >= 3.30) batteryPercent = 5;
+            else batteryPercent = 0;
+    
+            return {
+                mains_voltage: voltage,
+                battery: batteryPercent,
+            };
+        },
+    },
+    
 };
 
-// Функция для опроса (polling) устройства
 const onEventPoll = async (type, data, device, options) => {
-    const endpoint = device.getEndpoint(11); // меняем на нужный endpoint
+    if (type === 'stop') return;
+
+    const endpoint = device.getEndpoint(11);
 
     const poll = async () => {
         await endpoint.read('seMetering', ['currentSummDelivered']);
-        await endpoint.read('genPowerCfg', ['batteryPercentageRemaining']);
+        await endpoint.read('genPowerCfg', ['batteryPercentageRemaining', 'mainsVoltage']);
     };
 
-    // Запускаем polling раз в 1 секунду
     utils.onEventPoll(type, data, device, options, 'heat_poll', 1, poll);
 };
 
@@ -38,7 +66,7 @@ module.exports = [
         model: 'ZigbeeMBusSensor',
         vendor: 'NAGL DIY',
         description: 'Zigbee M-Bus sensor for heat metering with polling',
-        fromZigbee: [fzLocal.metering_heat, fz.battery],
+        fromZigbee: [fzLocal.metering_heat, fz.battery, fzLocal.power_voltage],
         toZigbee: [],
         exposes: [
             {
@@ -59,6 +87,16 @@ module.exports = [
                 access: ea.STATE,
                 description: 'Battery percentage',
                 device_class: 'battery',
+                state_class: 'measurement',
+            },
+            {
+                type: 'numeric',
+                name: 'mains_voltage',
+                property: 'mains_voltage',
+                unit: 'V',
+                access: ea.STATE,
+                description: 'Mains voltage',
+                device_class: 'voltage',
                 state_class: 'measurement',
             },
         ],
