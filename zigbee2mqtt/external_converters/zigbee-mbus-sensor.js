@@ -25,18 +25,16 @@ const fzLocal = {
             const rawValue = msg.data['mainsVoltage'];
             if (rawValue === 0) return;
     
-            const voltage = rawValue / 100.0; // mainsVoltage приходит как В * 100
+            const voltage = rawValue / 100.0;
     
-            // Таблица соответствия напряжения уровню заряда
-            let batteryPercent;
-            if (voltage >= 4.20) batteryPercent = 100;
-            else if (voltage >= 4.00) batteryPercent = 85;
-            else if (voltage >= 3.80) batteryPercent = 60;
-            else if (voltage >= 3.70) batteryPercent = 45;
-            else if (voltage >= 3.60) batteryPercent = 30;
-            else if (voltage >= 3.50) batteryPercent = 15;
-            else if (voltage >= 3.30) batteryPercent = 5;
-            else batteryPercent = 0;
+            // Прямая интерполяция от 3.0V (0%) до 4.2V (100%)
+            const minV = 3.0;
+            const maxV = 4.2;
+            let percent = ((voltage - minV) / (maxV - minV)) * 100;
+    
+            // Обрезаем диапазон от 0 до 100
+            percent = Math.max(0, Math.min(100, percent));
+            const batteryPercent = Math.round(percent); // Округляем до целого
     
             return {
                 mains_voltage: voltage,
@@ -44,7 +42,6 @@ const fzLocal = {
             };
         },
     },
-    
 };
 
 const onEventPoll = async (type, data, device, options) => {
